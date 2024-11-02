@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTokenizer(t *testing.T) {
-	expected := `[
+const (
+	expected1 = `[
 		{
 		  "Field1": "12345",
 		  "Field2": "MTIzNDU=",
@@ -65,8 +65,11 @@ func TestTokenizer(t *testing.T) {
 		},
 		{ "Field1": "11111" }
 	  ]`
+)
+
+func TestTokenizer(t *testing.T) {
 	var buf bytes.Buffer
-	tokenizer := jsontools.NewJsonTokenizer([]byte(expected))
+	tokenizer := jsontools.NewJsonTokenizer([]byte(expected1))
 	for {
 		token, value, err := tokenizer.Next()
 		if err != nil {
@@ -79,5 +82,19 @@ func TestTokenizer(t *testing.T) {
 		buf.Write(value)
 	}
 	t.Logf("buf: '%s'", buf.String())
-	require.JSONEq(t, expected, buf.String())
+	require.JSONEq(t, expected1, buf.String())
+}
+
+func BenchmarkTokenizer(b *testing.B) {
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tokenizer := jsontools.NewJsonTokenizer([]byte(expected1))
+		for {
+			token, _, err := tokenizer.Next()
+			require.NoError(b, err)
+			if token == jsontools.EndJson {
+				break
+			}
+		}
+	}
 }

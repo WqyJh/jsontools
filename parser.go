@@ -35,9 +35,12 @@ type jsonParser struct {
 
 func NewJsonParser(data []byte, handler jsonParserHandler) *jsonParser {
 	return &jsonParser{
-		jsonTokenizer: *NewJsonTokenizer(data),
-		stack:         make([]Kind, 0, 128),
-		handler:       handler,
+		jsonTokenizer: jsonTokenizer{
+			data:    data,
+			current: Init,
+		},
+		stack:   make([]Kind, 0, 128),
+		handler: handler,
 	}
 }
 

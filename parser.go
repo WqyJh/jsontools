@@ -5,21 +5,22 @@ import (
 	"fmt"
 )
 
-type StackType byte
+type Kind byte
 
 const (
-	StackTypeValue StackType = iota
-	StackTypeObjectKey
-	StackTypeArray
+	KindOther Kind = iota
+	KindObjectKey
+	KindObjectValue
+	KindArrayValue
 )
 
-func (s StackType) String() string {
+func (s Kind) String() string {
 	switch s {
-	case StackTypeValue:
-		return "value"
-	case StackTypeObjectKey:
+	case KindObjectKey:
 		return "key"
-	case StackTypeArray:
+	case KindObjectValue:
+		return "value"
+	case KindArrayValue:
 		return "array"
 	default:
 		return "unknown"
@@ -28,14 +29,14 @@ func (s StackType) String() string {
 
 type jsonParser struct {
 	jsonTokenizer
-	stack   []StackType
+	stack   []Kind
 	handler jsonParserHandler
 }
 
 func NewJsonParser(data []byte, handler jsonParserHandler) *jsonParser {
 	return &jsonParser{
 		jsonTokenizer: *NewJsonTokenizer(data),
-		stack:         make([]StackType, 0, 128),
+		stack:         make([]Kind, 0, 128),
 		handler:       handler,
 	}
 }
@@ -58,19 +59,19 @@ func (f parseFlags) has(flag parseFlags) bool {
 	return f&flag != 0
 }
 
-type jsonParserHandler func(token TokenType, value []byte)
+type jsonParserHandler func(token TokenType, kind Kind, value []byte)
 
-func (t *jsonParser) push(stackType StackType) {
-	t.stack = append(t.stack, stackType)
+func (t *jsonParser) push(kind Kind) {
+	t.stack = append(t.stack, kind)
 }
 
-func (t *jsonParser) pop() StackType {
-	stackType := t.stack[len(t.stack)-1]
+func (t *jsonParser) pop() Kind {
+	kind := t.stack[len(t.stack)-1]
 	t.stack = t.stack[:len(t.stack)-1]
-	return stackType
+	return kind
 }
 
-func (t *jsonParser) peek() StackType {
+func (t *jsonParser) peek() Kind {
 	return t.stack[len(t.stack)-1]
 }
 
@@ -86,40 +87,34 @@ func (t *jsonParser) Parse() error {
 			return err
 		}
 
-		if token == EndJson {
-			t.pop()
-			if t.isEmpty() {
-				return nil
-			}
-			return errors.New("invalid EOF")
-		}
-
-		t.handler(token, value)
-
 		switch token {
 		case BeginObject:
 			if !flags.has(flagBeginObject) {
 				return errors.New("invalid '{'")
 			}
-			t.push(StackTypeValue)
+			t.handler(token, KindOther, value)
+			t.push(KindObjectValue)
 			// current is '{', expect '}' or key
 			flags = flagObjectKey | flagBeginObject | flagEndObject
 
 		case String:
 			if flags.has(flagObjectKey) {
 				// current is key, expect ':'
-				t.push(StackTypeObjectKey)
+				t.handler(token, KindObjectKey, value)
+				t.push(KindObjectKey)
 				flags = flagColon
 				continue
 			}
 			if flags.has(flagObjectValue) {
 				// current is object value, expect ',' or '}'
+				t.handler(token, KindObjectValue, value)
 				t.pop()
 				flags = flagComma | flagEndObject
 				continue
 			}
 			if flags.has(flagArrayValue) {
 				// current is array value, expect ',' or ']'
+				t.handler(token, KindArrayValue, value)
 				flags = flagComma | flagEndArray
 				continue
 			}
@@ -128,12 +123,14 @@ func (t *jsonParser) Parse() error {
 		case Number:
 			if flags.has(flagObjectValue) {
 				// current is object value, expect ',' or '}'
+				t.handler(token, KindObjectValue, value)
 				t.pop()
 				flags = flagComma | flagEndObject
 				continue
 			}
 			if flags.has(flagArrayValue) {
 				// current is array value, expect ',' or ']'
+				t.handler(token, KindArrayValue, value)
 				flags = flagComma | flagEndArray
 				continue
 			}
@@ -142,12 +139,14 @@ func (t *jsonParser) Parse() error {
 		case Float:
 			if flags.has(flagObjectValue) {
 				// current is object value, expect ',' or '}'
+				t.handler(token, KindObjectValue, value)
 				t.pop()
 				flags = flagComma | flagEndObject
 				continue
 			}
 			if flags.has(flagArrayValue) {
 				// current is array value, expect ',' or ']'
+				t.handler(token, KindArrayValue, value)
 				flags = flagComma | flagEndArray
 				continue
 			}
@@ -156,12 +155,14 @@ func (t *jsonParser) Parse() error {
 		case True:
 			if flags.has(flagObjectValue) {
 				// current is object value, expect ',' or '}'
+				t.handler(token, KindObjectValue, value)
 				t.pop()
 				flags = flagComma | flagEndObject
 				continue
 			}
 			if flags.has(flagArrayValue) {
 				// current is array value, expect ',' or ']'
+				t.handler(token, KindArrayValue, value)
 				flags = flagComma | flagEndArray
 				continue
 			}
@@ -170,12 +171,14 @@ func (t *jsonParser) Parse() error {
 		case False:
 			if flags.has(flagObjectValue) {
 				// current is object value, expect ',' or '}'
+				t.handler(token, KindObjectValue, value)
 				t.pop()
 				flags = flagComma | flagEndObject
 				continue
 			}
 			if flags.has(flagArrayValue) {
 				// current is array value, expect ',' or ']'
+				t.handler(token, KindArrayValue, value)
 				flags = flagComma | flagEndArray
 				continue
 			}
@@ -184,12 +187,14 @@ func (t *jsonParser) Parse() error {
 		case Null:
 			if flags.has(flagObjectValue) {
 				// current is object value, expect ',' or '}'
+				t.handler(token, KindObjectValue, value)
 				t.pop()
 				flags = flagComma | flagEndObject
 				continue
 			}
 			if flags.has(flagArrayValue) {
 				// current is array value, expect ',' or ']'
+				t.handler(token, KindArrayValue, value)
 				flags = flagComma | flagEndArray
 				continue
 			}
@@ -201,11 +206,13 @@ func (t *jsonParser) Parse() error {
 			}
 			if flags.has(flagEndObject) {
 				// current is ',' in object, expect key
+				t.handler(token, KindOther, value)
 				flags = flagObjectKey
 				continue
 			}
 			if flags.has(flagEndArray) {
 				// current is ',' in array, expect value or object
+				t.handler(token, KindOther, value)
 				flags = flagArrayValue | flagBeginArray | flagBeginObject
 				continue
 			}
@@ -215,12 +222,14 @@ func (t *jsonParser) Parse() error {
 				return errors.New("missing ':'")
 			}
 			// current is ':', expect value, object or array
+			t.handler(token, KindOther, value)
 			flags = flagObjectValue | flagBeginObject | flagBeginArray
 
 		case BeginArray:
 			if flags.has(flagBeginArray) {
-				t.push(StackTypeArray)
 				// current is '[', expect ']' or value or object
+				t.handler(token, KindOther, value)
+				t.push(KindArrayValue)
 				flags = flagArrayValue | flagBeginArray | flagEndArray | flagBeginObject
 			}
 
@@ -230,24 +239,27 @@ func (t *jsonParser) Parse() error {
 			}
 			t.pop()
 			if t.isEmpty() {
-				t.push(StackTypeArray)
+				t.handler(token, KindOther, value)
+				t.push(KindArrayValue)
 				continue
 			}
 
-			stackType := t.peek()
-			if stackType == StackTypeObjectKey {
+			kind := t.peek()
+			if kind == KindObjectKey {
 				// current is ']', but if there's key in stack, which means array is inside object.
 				// expect ',' or '}'
 				// eg: {"arr":[1, 2, 3], "nextKey": "value"}
+				t.handler(token, KindOther, value)
 				t.pop()
 				flags = flagComma | flagEndObject
 				continue
 			}
 
-			if stackType == StackTypeArray {
+			if kind == KindArrayValue {
 				// current is ']', but if there's array in stack, which means array is inside array.
 				// expect ',' or ']'
 				// eg: [1, 2, 3, [4, 5, 6], 7]
+				t.handler(token, KindOther, value)
 				flags = flagComma | flagEndArray
 				continue
 			}
@@ -260,29 +272,38 @@ func (t *jsonParser) Parse() error {
 			}
 			t.pop()
 			if t.isEmpty() {
-				t.push(StackTypeValue)
+				t.push(KindObjectValue)
 				continue
 			}
 
-			stackType := t.peek()
-			if stackType == StackTypeObjectKey {
+			kind := t.peek()
+			if kind == KindObjectKey {
 				// current is '}', but if there's key in stack, which means object is inside object.
 				// expect ',' or '}'
 				// eg: {"obj":{"key1":1, "key2":2}, "nextKey": "value"}
+				t.handler(token, KindOther, value)
 				t.pop()
 				flags = flagComma | flagEndObject
 				continue
 			}
 
-			if stackType == StackTypeArray {
+			if kind == KindArrayValue {
 				// current is '}', but if there's array in stack, which means object is inside array.
 				// expect ',' or ']'
 				// eg: [1, 2, 3, {"key1":1, "key2":2}, 7]
+				t.handler(token, KindOther, value)
 				flags = flagComma | flagEndArray
 				continue
 			}
 
 			return fmt.Errorf("invalid '}'")
+
+		case EndJson:
+			t.pop()
+			if t.isEmpty() {
+				return nil
+			}
+			return errors.New("invalid EOF")
 		}
 	}
 }

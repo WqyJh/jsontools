@@ -66,8 +66,8 @@ func TestParser(t *testing.T) {
 		{ "Field1": "11111" }
 	  ]`
 	var buf bytes.Buffer
-	parser := jsontools.NewJsonParser([]byte(expected), func(token jsontools.TokenType, value []byte) {
-		t.Logf("token: %v\t\t'%s'", token, string(value))
+	parser := jsontools.NewJsonParser([]byte(expected), func(token jsontools.TokenType, kind jsontools.Kind, value []byte) {
+		t.Logf("token: %v\tkind: %v\t\t'%s'", token, kind, string(value))
 		buf.Write(value)
 	})
 	require.NoError(t, parser.Parse())

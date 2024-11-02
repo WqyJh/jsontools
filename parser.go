@@ -284,6 +284,7 @@ func (t *jsonParser) Parse() error {
 			}
 			t.pop()
 			if t.isEmpty() {
+				t.handler(token, KindOther, value)
 				t.push(KindObjectValue)
 				continue
 			}

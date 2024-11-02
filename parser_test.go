@@ -2,6 +2,7 @@ package jsontools_test
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/WqyJh/jsontools"
@@ -19,6 +20,16 @@ func TestParser(t *testing.T) {
 
 	t.Logf("buf: '%s'", buf.String())
 	require.JSONEq(t, expected1, buf.String())
+
+	// stopped by error
+	called := 0
+	err := errors.New("stopped")
+	parser = jsontools.NewJsonParser([]byte(expected1), func(token jsontools.TokenType, kind jsontools.Kind, value []byte) error {
+		called++
+		return err
+	})
+	require.ErrorIs(t, err, parser.Parse())
+	require.Equal(t, 1, called)
 }
 
 func BenchmarkParser(b *testing.B) {

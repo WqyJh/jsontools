@@ -67,8 +67,9 @@ import (
 	"github.com/WqyJh/jsontools"
 )
 
-    parser := jsontools.NewJsonParser([]byte(expected), func(token jsontools.TokenType, kind jsontools.Kind, value []byte) {
+    parser := jsontools.NewJsonParser([]byte(expected), func(token jsontools.TokenType, kind jsontools.Kind, value []byte) error {
 		fmt.Printf("token: %v\tkind: %v\t\t'%s'\n", token, kind, string(value))
+		return nil
 	})
 ```
 
@@ -79,6 +80,8 @@ Supported kinds:
 | ObjectKey    | object key     |
 | ObjectValue  | object value   |
 | ArrayValue   | array value    |
+
+If you return error in handler, the parser will be stopped.
 
 
 ### Modify Json

@@ -29,8 +29,9 @@ func (s Kind) String() string {
 
 type jsonParser struct {
 	jsonTokenizer
-	stack   []Kind
-	handler jsonParserHandler
+	stack       []Kind
+	userHandler jsonParserHandler
+	err         error
 }
 
 func NewJsonParser(data []byte, handler jsonParserHandler) *jsonParser {
@@ -39,8 +40,8 @@ func NewJsonParser(data []byte, handler jsonParserHandler) *jsonParser {
 			data:    data,
 			current: Init,
 		},
-		stack:   make([]Kind, 0, 128),
-		handler: handler,
+		stack:       make([]Kind, 0, 128),
+		userHandler: handler,
 	}
 }
 
@@ -62,7 +63,7 @@ func (f parseFlags) has(flag parseFlags) bool {
 	return f&flag != 0
 }
 
-type jsonParserHandler func(token TokenType, kind Kind, value []byte)
+type jsonParserHandler func(token TokenType, kind Kind, value []byte) error
 
 func (t *jsonParser) push(kind Kind) {
 	t.stack = append(t.stack, kind)
@@ -82,9 +83,17 @@ func (t *jsonParser) isEmpty() bool {
 	return len(t.stack) == 0
 }
 
+func (t *jsonParser) handler(token TokenType, kind Kind, value []byte) {
+	t.err = t.userHandler(token, kind, value)
+}
+
 func (t *jsonParser) Parse() error {
 	flags := flagBeginObject | flagBeginArray
 	for {
+		if t.err != nil {
+			return t.err
+		}
+
 		token, value, err := t.Next()
 		if err != nil {
 			return err

@@ -2,6 +2,7 @@ package jsontools_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"testing"
 
 	"github.com/WqyJh/jsontools"
@@ -13,9 +14,9 @@ const (
 		{
 		  "Field1": "12345",
 		  "Field2": "MTIzNDU=",
-		  "Field3": [1, 2, 3, 4, 5],
+		  "Field3": [1, 2.1, 3, -4.2, 5.00],
 		  "Field4": {
-			"1": "12345",
+			"1": "😄😄😄😄😄",
 			"2": "12345",
 			"3": "12345",
 			"4": "12345",
@@ -68,6 +69,7 @@ const (
 )
 
 func TestTokenizer(t *testing.T) {
+	require.True(t, json.Valid([]byte(expected1)))
 	var buf bytes.Buffer
 	tokenizer := jsontools.NewJsonTokenizer([]byte(expected1))
 	for {

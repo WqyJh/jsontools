@@ -2,6 +2,7 @@ package jsontools
 
 import (
 	"errors"
+	"unicode/utf8"
 )
 
 type TokenType byte
@@ -74,23 +75,27 @@ func NewJsonTokenizer(data []byte) *jsonTokenizer {
 	}
 }
 
-func isDigit(b byte) bool {
-	return b >= 48 && b <= 57
+func isDigit(b rune, includeSign bool) bool {
+	if b >= 48 && b <= 57 {
+		return true
+	}
+
+	return includeSign && b == '-'
 }
 
-func (t *jsonTokenizer) nextStatus(b byte) TokenType {
+func (t *jsonTokenizer) nextStatus(b rune, size int) TokenType {
 	switch b {
 	case '{':
-		t.value = t.data[t.off : t.off+1]
+		t.value = t.data[t.off : t.off+size]
 		return BeginObject
 	case '}':
-		t.value = t.data[t.off : t.off+1]
+		t.value = t.data[t.off : t.off+size]
 		return EndObject
 	case '[':
-		t.value = t.data[t.off : t.off+1]
+		t.value = t.data[t.off : t.off+size]
 		return BeginArray
 	case ']':
-		t.value = t.data[t.off : t.off+1]
+		t.value = t.data[t.off : t.off+size]
 		return EndArray
 	case 'n':
 		t.start = t.off
@@ -102,16 +107,16 @@ func (t *jsonTokenizer) nextStatus(b byte) TokenType {
 		t.start = t.off
 		return False
 	case ':':
-		t.value = t.data[t.off : t.off+1]
+		t.value = t.data[t.off : t.off+size]
 		return SepColon
 	case ',':
-		t.value = t.data[t.off : t.off+1]
+		t.value = t.data[t.off : t.off+size]
 		return SepComma
 	case '"':
 		t.start = t.off
 		return String
 	}
-	if isDigit(b) {
+	if isDigit(b, true) {
 		t.start = t.off
 		return Number
 	}
@@ -124,46 +129,48 @@ func (t *jsonTokenizer) pendingNextStatus() TokenType {
 
 func (t *jsonTokenizer) Next() (TokenType, []byte, error) {
 	for t.off < len(t.data) {
-		b := t.data[t.off]
+		b, size := utf8.DecodeRune(t.data[t.off:])
 
 		switch t.current {
 		case Init:
-			t.current = t.nextStatus(b)
-			t.off++
+			t.current = t.nextStatus(b, size)
+			t.off += size
 
 		case BeginObject:
 			// todo: yield '{'
 			value := t.value
-			t.current = t.nextStatus(b)
-			t.off++
+			t.current = t.nextStatus(b, size)
+			t.off += size
 			return BeginObject, value, nil
 
 		case EndObject:
 			value := t.value
-			t.current = t.nextStatus(b)
-			t.off++
+			t.current = t.nextStatus(b, size)
+			t.off += size
 			return EndObject, value, nil
 
 		case String:
-			for j := t.off; j < len(t.data); j++ {
-				if t.data[j] == '"' && t.data[j-1] != '\\' {
-					value := t.data[t.start : j+1]
+			for j := t.off; j < len(t.data); {
+				b, size := utf8.DecodeRune(t.data[j:])
+				if b == '"' && t.data[j-1] != '\\' {
+					value := t.data[t.start : j+size]
 					t.current = t.pendingNextStatus()
-					t.off = j + 1
+					t.off = j + size
 					return String, value, nil
 				}
+				j += size
 			}
 
 		case Number:
 			if b == '.' {
 				t.current = Float
-			} else if isDigit(b) {
-				t.off++
+				t.off += size
+			} else if isDigit(b, false) {
+				t.off += size
 			} else {
-				// todo: yield number [start, end)
 				value := t.data[t.start:t.off]
-				t.current = t.nextStatus(b)
-				t.off++
+				t.current = t.nextStatus(b, size)
+				t.off += size
 				return Number, value, nil
 			}
 
@@ -171,38 +178,37 @@ func (t *jsonTokenizer) Next() (TokenType, []byte, error) {
 			if b == '.' {
 				return Init, nil, errors.New("invalid float")
 			}
-			if isDigit(b) {
-				t.off++
+			if isDigit(b, false) {
+				t.off += size
 			} else {
-				// todo: yield float [start, end)
 				value := t.data[t.start:t.off]
-				t.current = t.nextStatus(b)
-				t.off++
+				t.current = t.nextStatus(b, size)
+				t.off += size
 				return Float, value, nil
 			}
 
 		case SepColon:
 			value := t.value
-			t.current = t.nextStatus(b)
-			t.off++
+			t.current = t.nextStatus(b, size)
+			t.off += size
 			return SepColon, value, nil
 
 		case SepComma:
 			value := t.value
-			t.current = t.nextStatus(b)
-			t.off++
+			t.current = t.nextStatus(b, size)
+			t.off += size
 			return SepComma, value, nil
 
 		case BeginArray:
 			value := t.value
-			t.current = t.nextStatus(b)
-			t.off++
+			t.current = t.nextStatus(b, size)
+			t.off += size
 			return BeginArray, value, nil
 
 		case EndArray:
 			value := t.value
-			t.current = t.nextStatus(b)
-			t.off++
+			t.current = t.nextStatus(b, size)
+			t.off += size
 			return EndArray, value, nil
 
 		case True:

@@ -10,9 +10,10 @@ import (
 
 func TestParser(t *testing.T) {
 	var buf bytes.Buffer
-	parser := jsontools.NewJsonParser([]byte(expected1), func(token jsontools.TokenType, kind jsontools.Kind, value []byte) {
+	parser := jsontools.NewJsonParser([]byte(expected1), func(token jsontools.TokenType, kind jsontools.Kind, value []byte) error {
 		t.Logf("token: %v\tkind: %v\t\t'%s'", token, kind, string(value))
 		buf.Write(value)
+		return nil
 	})
 	require.NoError(t, parser.Parse())
 
@@ -23,7 +24,9 @@ func TestParser(t *testing.T) {
 func BenchmarkParser(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		parser := jsontools.NewJsonParser([]byte(expected1), func(token jsontools.TokenType, kind jsontools.Kind, value []byte) {})
+		parser := jsontools.NewJsonParser([]byte(expected1), func(token jsontools.TokenType, kind jsontools.Kind, value []byte) error {
+			return nil
+		})
 		require.NoError(b, parser.Parse())
 	}
 }

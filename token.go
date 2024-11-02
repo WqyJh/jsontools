@@ -7,20 +7,20 @@ import (
 type TokenType byte
 
 const (
-	Init TokenType = iota
-	BeginObject
-	EndObject
-	BeginArray
-	EndArray
-	Null
-	Number
-	Float
-	String
-	True
-	False
-	SepColon // :
-	SepComma // ,
-	EndJson
+	Init        TokenType = iota
+	BeginObject           // {
+	EndObject             // }
+	BeginArray            // [
+	EndArray              // ]
+	Null                  // null
+	Number                // number
+	Float                 // float
+	String                // "string"
+	True                  // true
+	False                 // false
+	SepColon              // :
+	SepComma              // ,
+	EndJson               // EOF
 )
 
 func (t TokenType) String() string {

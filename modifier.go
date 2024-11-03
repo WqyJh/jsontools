@@ -11,21 +11,21 @@ type JsonModifier struct {
 	filterKeySet map[string]struct{}
 }
 
-type jsonModifierOption func(*JsonModifier)
+type JsonModifierOption func(*JsonModifier)
 
-func WithFieldLengthLimit(limit int) jsonModifierOption {
+func WithFieldLengthLimit(limit int) JsonModifierOption {
 	return func(m *JsonModifier) {
 		m.limit = limit
 	}
 }
 
-func WithInplace(inplace bool) jsonModifierOption {
+func WithInplace(inplace bool) JsonModifierOption {
 	return func(m *JsonModifier) {
 		m.inplace = inplace
 	}
 }
 
-func WithFilterKeys(keys ...string) jsonModifierOption {
+func WithFilterKeys(keys ...string) JsonModifierOption {
 	return func(m *JsonModifier) {
 		m.filterKeySet = make(map[string]struct{}, len(keys))
 		for _, key := range keys {
@@ -35,7 +35,7 @@ func WithFilterKeys(keys ...string) jsonModifierOption {
 	}
 }
 
-func NewJsonModifier(opts ...jsonModifierOption) *JsonModifier {
+func NewJsonModifier(opts ...JsonModifierOption) *JsonModifier {
 	m := &JsonModifier{}
 	for _, opt := range opts {
 		opt(m)
@@ -130,7 +130,7 @@ func (m *JsonModifier) ModifyJson(data []byte) ([]byte, error) {
 	return dst, nil
 }
 
-func ModifyJson(data []byte, opts ...jsonModifierOption) ([]byte, error) {
+func ModifyJson(data []byte, opts ...JsonModifierOption) ([]byte, error) {
 	m := NewJsonModifier(opts...)
 	return m.ModifyJson(data)
 }

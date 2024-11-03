@@ -2,6 +2,7 @@ package jsontools
 
 import (
 	"errors"
+	"fmt"
 	"unicode/utf8"
 )
 
@@ -137,7 +138,6 @@ func (t *jsonTokenizer) Next() (TokenType, []byte, error) {
 			t.off += size
 
 		case BeginObject:
-			// todo: yield '{'
 			value := t.value
 			t.current = t.nextStatus(b, size)
 			t.off += size
@@ -160,6 +160,8 @@ func (t *jsonTokenizer) Next() (TokenType, []byte, error) {
 				}
 				j += size
 			}
+
+			return Init, nil, fmt.Errorf("invalid string '%s'", string(t.data[t.start:]))
 
 		case Number:
 			if b == '.' {
@@ -212,51 +214,83 @@ func (t *jsonTokenizer) Next() (TokenType, []byte, error) {
 			return EndArray, value, nil
 
 		case True:
-			if t.off+2 > len(t.data) {
-				return Init, nil, errors.New("invalid bool true")
-			}
-			if t.data[t.off] == 'r' && t.data[t.off+1] == 'u' && t.data[t.off+2] == 'e' {
-				// todo: yield bool true [start, end)
+			if t.off+3 <= len(t.data) && t.data[t.off] == 'r' && t.data[t.off+1] == 'u' && t.data[t.off+2] == 'e' {
 				value := t.data[t.start : t.off+3]
 				t.off += 3
 				t.current = t.pendingNextStatus()
 				return True, value, nil
 			}
-			return Init, nil, errors.New("invalid bool true")
+			return Init, nil, fmt.Errorf("invalid bool true '%s'", string(t.data[t.start:]))
 
 		case False:
-			if t.off+4 > len(t.data) {
-				return Init, nil, errors.New("invalid bool false")
-			}
-			if t.data[t.off] == 'a' && t.data[t.off+1] == 'l' && t.data[t.off+2] == 's' && t.data[t.off+3] == 'e' {
-				// todo: yield bool false [start, end)
+			if t.off+4 <= len(t.data) && t.data[t.off] == 'a' && t.data[t.off+1] == 'l' && t.data[t.off+2] == 's' && t.data[t.off+3] == 'e' {
 				value := t.data[t.start : t.off+4]
 				t.off += 4
 				t.current = t.pendingNextStatus()
 				return False, value, nil
 			}
-			return Init, nil, errors.New("invalid bool false")
+			return Init, nil, fmt.Errorf("invalid bool false '%s'", string(t.data[t.start:]))
 
 		case Null:
-			if t.off+3 > len(t.data) {
-				return Init, nil, errors.New("invalid null")
-			}
-			if t.data[t.off] == 'u' && t.data[t.off+1] == 'l' && t.data[t.off+2] == 'l' {
-				// todo: yield null [start, end)
+			if t.off+3 <= len(t.data) && t.data[t.off] == 'u' && t.data[t.off+1] == 'l' && t.data[t.off+2] == 'l' {
 				value := t.data[t.start : t.off+3]
 				t.off += 3
 				t.current = t.pendingNextStatus()
 				return Null, value, nil
 			}
-			return Init, nil, errors.New("invalid null")
+			return Init, nil, fmt.Errorf("invalid null '%s'", string(t.data[t.start:]))
 		}
 	}
 
-	if t.current != EndJson {
+	switch t.current {
+	case BeginObject,
+		EndObject,
+		BeginArray,
+		EndArray,
+		SepColon,
+		SepComma:
 		token := t.current
 		t.current = EndJson
 		return token, t.value, nil
-	}
 
-	return EndJson, nil, nil
+	case EndJson:
+		return EndJson, nil, nil
+
+	case String:
+		value := t.data[t.start:]
+		t.current = EndJson
+		if len(value) >= 2 && (value[len(value)-1] != '"' || value[len(value)-2] == '\\') {
+			return String, value, nil
+		}
+		return Init, nil, fmt.Errorf("invalid string '%s'", string(value))
+
+	case True:
+		value := t.data[t.start:]
+		t.current = EndJson
+		if len(value) == 4 && value[1] == 'r' && value[2] == 'u' && value[3] == 'e' {
+			return True, value, nil
+		}
+		return Init, nil, fmt.Errorf("invalid bool true '%s'", string(value))
+
+	case False:
+		value := t.data[t.start:]
+		t.current = EndJson
+		if len(value) == 5 && value[1] == 'a' && value[2] == 'l' && value[3] == 's' && value[4] == 'e' {
+			return False, value, nil
+		}
+		return Init, nil, fmt.Errorf("invalid bool false '%s'", string(value))
+
+	case Null:
+		value := t.data[t.start:]
+		t.current = EndJson
+		if len(value) == 4 && value[1] == 'u' && value[2] == 'l' && value[3] == 'l' {
+			return Null, value, nil
+		}
+		return Init, nil, fmt.Errorf("invalid null '%s'", string(value))
+
+	default:
+		token := t.current
+		t.current = EndJson
+		return token, t.data[t.start:], nil
+	}
 }

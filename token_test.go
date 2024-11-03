@@ -87,6 +87,41 @@ func TestTokenizer(t *testing.T) {
 	require.JSONEq(t, expected1, buf.String())
 }
 
+func TestTokenizerError(t *testing.T) {
+	cases := []struct {
+		src      string
+		expected string
+	}{
+		{`1..`, "invalid float"},
+		{`t`, "invalid bool true 't'"},
+		{`tr`, "invalid bool true 'tr'"},
+		{`tru`, "invalid bool true 'tru'"},
+		{`trus`, "invalid bool true 'trus'"},
+		{`talse`, "invalid bool true 'talse'"},
+		{`f`, "invalid bool false 'f'"},
+		{`fa`, "invalid bool false 'fa'"},
+		{`fal`, "invalid bool false 'fal'"},
+		{`fals`, "invalid bool false 'fals'"},
+		{`falss`, "invalid bool false 'falss'"},
+		{`falsse`, "invalid bool false 'falsse'"},
+		{`n`, "invalid null 'n'"},
+		{`nu`, "invalid null 'nu'"},
+		{`nul`, "invalid null 'nul'"},
+		{`nuls`, "invalid null 'nuls'"},
+		{`nulsl`, "invalid null 'nulsl'"},
+		{`"`, `invalid string '"'`},
+		{`"1`, `invalid string '"1'`},
+		{`"1\"`, `invalid string '"1\"'`},
+	}
+	for _, c := range cases {
+		tokenizer := jsontools.NewJsonTokenizer([]byte(c.src))
+		t.Logf("src: '%s'", c.src)
+		_, _, err := tokenizer.Next()
+		require.Error(t, err)
+		require.Equal(t, c.expected, err.Error())
+	}
+}
+
 func BenchmarkTokenizer(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

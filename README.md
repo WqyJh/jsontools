@@ -67,8 +67,8 @@ import (
 	"github.com/WqyJh/jsontools"
 )
 
-    parser := jsontools.NewJsonParser([]byte(expected), func(token jsontools.TokenType, kind jsontools.Kind, value []byte) error {
-		fmt.Printf("token: %v\tkind: %v\t\t'%s'\n", token, kind, string(value))
+    parser := jsontools.NewJsonParser([]byte(expected), func(ctx jsontools.HandlerContext) error {
+		fmt.Printf("token: %v\tkind: %v\t\t'%s'\n", ctx.Token, ctx.Kind, string(ctx.Value))
 		return nil
 	})
 ```
@@ -88,6 +88,8 @@ If you return error in handler, the parser will be stopped.
 
 When you got a json string, and you want to write it to log, but some of the fields are too long, you can use this tool to modify the json string, by cutting off the long fields.
 
+There are `inplace` mode to modify the input bytes directly, without allocating new bytes, used only when src won't be used anymore.
+
 ```go
 import (
 	"github.com/WqyJh/jsontools"
@@ -103,7 +105,15 @@ dst, _ := jsontools.ModifyJson([]byte(src), jsontools.WithFieldLengthLimit(5))
 dst, _ = jsontools.ModifyJson([]byte(src), jsontools.WithFieldLengthLimit(5), jsontools.WithInplace(true))
 ```
 
-There are `inplace` mode to modify the input bytes directly, without allocating new bytes, used only when src won't be used anymore.
+Or if you want to filter some keys from the output, such as password or credentials, use the following.
+
+```go
+src := `{"a":"1234567890","b":"1234567890","c":"1234567890","d":"1234567890"}`
+
+// result is `{"a":"12345","c":"12345"}`
+dst, err = jsontools.ModifyJson([]byte(src), jsontools.WithFilterKeys("b", "d"), jsontools.WithFieldLengthLimit(5), jsontools.WithInplace(true))
+```
+
 
 ## License
 

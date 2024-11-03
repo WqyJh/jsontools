@@ -5,31 +5,28 @@ import (
 	"unicode/utf8"
 )
 
-type jsonModifier struct {
-	limit   int
-	inplace bool
-
-	filterKeySet    map[string]struct{}
-	skipComma       bool
-	expectStackSize int
+type JsonModifier struct {
+	limit        int
+	inplace      bool
+	filterKeySet map[string]struct{}
 }
 
-type jsonModifierOption func(*jsonModifier)
+type jsonModifierOption func(*JsonModifier)
 
 func WithFieldLengthLimit(limit int) jsonModifierOption {
-	return func(m *jsonModifier) {
+	return func(m *JsonModifier) {
 		m.limit = limit
 	}
 }
 
 func WithInplace(inplace bool) jsonModifierOption {
-	return func(m *jsonModifier) {
+	return func(m *JsonModifier) {
 		m.inplace = inplace
 	}
 }
 
 func WithFilterKeys(keys ...string) jsonModifierOption {
-	return func(m *jsonModifier) {
+	return func(m *JsonModifier) {
 		m.filterKeySet = make(map[string]struct{}, len(keys))
 		for _, key := range keys {
 			k := `"` + key + `"`
@@ -38,11 +35,15 @@ func WithFilterKeys(keys ...string) jsonModifierOption {
 	}
 }
 
-func ModifyJson(data []byte, opts ...jsonModifierOption) ([]byte, error) {
-	m := &jsonModifier{}
+func NewJsonModifier(opts ...jsonModifierOption) *JsonModifier {
+	m := &JsonModifier{}
 	for _, opt := range opts {
 		opt(m)
 	}
+	return m
+}
+
+func (m *JsonModifier) ModifyJson(data []byte) ([]byte, error) {
 	var dst []byte
 	if m.inplace {
 		dst = data[:0]
@@ -50,17 +51,19 @@ func ModifyJson(data []byte, opts ...jsonModifierOption) ([]byte, error) {
 		dst = make([]byte, 0, len(data))
 	}
 
+	skipComma := false
+	expectStackSize := 0
 	filterKeyStack := make([][]byte, 0, 32)
 	parser := NewJsonParser(data, func(ctx HandlerContext) error {
 
 		// filter keys ------- begin -------
-		if m.expectStackSize > 0 {
-			if ctx.StackSize >= m.expectStackSize {
+		if expectStackSize > 0 {
+			if ctx.StackSize >= expectStackSize {
 				// skip all colon, comma and values of this key
 				return nil
 			} else {
-				m.expectStackSize = 0
-				m.skipComma = true
+				expectStackSize = 0
+				skipComma = true
 			}
 		}
 
@@ -71,13 +74,13 @@ func ModifyJson(data []byte, opts ...jsonModifierOption) ([]byte, error) {
 				filterKeyStack = append(filterKeyStack, ctx.Value)
 				// skip this key
 				// m.skipColon = true
-				m.expectStackSize = ctx.StackSize
+				expectStackSize = ctx.StackSize
 				return nil
 			}
 
 		case KindOther:
-			if m.skipComma {
-				m.skipComma = false
+			if skipComma {
+				skipComma = false
 				if ctx.Token == SepComma {
 					// skip this comma
 					return nil
@@ -125,4 +128,9 @@ func ModifyJson(data []byte, opts ...jsonModifierOption) ([]byte, error) {
 		return nil, err
 	}
 	return dst, nil
+}
+
+func ModifyJson(data []byte, opts ...jsonModifierOption) ([]byte, error) {
+	m := NewJsonModifier(opts...)
+	return m.ModifyJson(data)
 }

@@ -114,6 +114,15 @@ src := `{"a":"1234567890","b":"1234567890","c":"1234567890","d":"1234567890"}`
 dst, err = jsontools.ModifyJson([]byte(src), jsontools.WithFilterKeys("b", "d"), jsontools.WithFieldLengthLimit(5), jsontools.WithInplace(true))
 ```
 
+`ModifyJson` is a wrapper of `JsonModifier`, which create a new `JsonModifier` on every call. If you want to modify multiple json strings with same options, you can create a `JsonModifier` once, and call `JsonModifier.ModifyJson` method multiple times, which is a concurrent-safe reentrant function.
+
+```go
+modifier := jsontools.NewJsonModifier(jsontools.WithFilterKeys("b", "d"), jsontools.WithFieldLengthLimit(5))
+
+// result is `{"a":"12345","c":"12345"}`
+dst, err = modifier.ModifyJson([]byte(src))
+```
+
 
 ## License
 

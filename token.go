@@ -150,13 +150,21 @@ func (t *jsonTokenizer) Next() (TokenType, []byte, error) {
 			return EndObject, value, nil
 
 		case String:
+			slashCount := 0
 			for j := t.off; j < len(t.data); {
 				b, size := utf8.DecodeRune(t.data[j:])
-				if b == '"' && t.data[j-1] != '\\' {
-					value := t.data[t.start : j+size]
-					t.current = t.pendingNextStatus()
-					t.off = j + size
-					return String, value, nil
+				switch b {
+				case '\\':
+					slashCount++
+				case '"':
+					if slashCount%2 == 0 {
+						value := t.data[t.start : j+size]
+						t.current = t.pendingNextStatus()
+						t.off = j + size
+						return String, value, nil
+					}
+				default:
+					slashCount = 0
 				}
 				j += size
 			}

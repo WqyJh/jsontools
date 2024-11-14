@@ -44,6 +44,10 @@ func NewJsonModifier(opts ...JsonModifierOption) *JsonModifier {
 }
 
 func (m *JsonModifier) ModifyJson(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return data, nil
+	}
+
 	var dst []byte
 	if m.inplace {
 		dst = data[:0]
@@ -103,10 +107,16 @@ func (m *JsonModifier) ModifyJson(data []byte) ([]byte, error) {
 		if needModify {
 			dst = append(dst, '"')
 			count := 0
+			slashCount := 0
 			for i := 1; ; {
 				r, size := utf8.DecodeRune(ctx.Value[i:])
 				if r == utf8.RuneError {
 					return errors.New("invalid utf8")
+				}
+				if r == '\\' {
+					slashCount++
+				} else {
+					slashCount = 0
 				}
 				dst = append(dst, ctx.Value[i:i+size]...)
 				i += size
@@ -114,6 +124,9 @@ func (m *JsonModifier) ModifyJson(data []byte) ([]byte, error) {
 				if count >= m.limit {
 					break
 				}
+			}
+			if slashCount > 0 && slashCount%2 == 1 {
+				dst = dst[:len(dst)-1] // remove the last slash
 			}
 			dst = append(dst, '"')
 		} else {

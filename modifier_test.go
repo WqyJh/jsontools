@@ -58,6 +58,8 @@ func TestModifyJson2(t *testing.T) {
 		maxLen   int
 		expected string
 	}{
+		{``, 5, ``},
+		{`{}`, 5, `{}`},
 		{`{"a":"1234567890"}`, 5, `{"a":"12345"}`},
 		{`{"a":"1234567890"}`, 9, `{"a":"123456789"}`},
 		{`{"a":"1234567890"}`, 10, `{"a":"1234567890"}`},
@@ -78,7 +80,37 @@ func TestModifyJson2(t *testing.T) {
 	for _, c := range cases {
 		dst, err := jsontools.ModifyJson([]byte(c.input), jsontools.WithFieldLengthLimit(c.maxLen))
 		require.NoError(t, err)
+		if c.expected == "" {
+			require.Equal(t, "", string(dst))
+			continue
+		}
 		require.JSONEq(t, c.expected, string(dst))
+	}
+}
+
+func TestModifyJson3(t *testing.T) {
+	cases := []struct {
+		input    string
+		maxLen   int
+		expected string
+	}{
+		{`{"a":"\\\\567890"}`, 1, `{"a":""}`},
+		{`{"a":"\\\\567890"}`, 2, `{"a":"\\"}`},
+		{`{"a":"\\\\567890"}`, 3, `{"a":"\\"}`},
+		{`{"a":"\\\\567890"}`, 4, `{"a":"\\\\"}`},
+		{`{"a":"\\\\567890"}`, 5, `{"a":"\\\\5"}`},
+		{`{"a":"1234\\\\567890"}`, 4, `{"a":"1234"}`},
+		{`{"a":"1234\\\\567890"}`, 5, `{"a":"1234"}`},
+		{`{"a":"1234\\\\567890"}`, 6, `{"a":"1234\\"}`},
+		{`{"a":"1234\\\\567890"}`, 7, `{"a":"1234\\"}`},
+		{`{"a":"1234\\\\567890"}`, 8, `{"a":"1234\\\\"}`},
+		{`{"a":"1234\\\\567890"}`, 9, `{"a":"1234\\\\5"}`},
+		{`{"a":"1234\\\\567890"}`, 10, `{"a":"1234\\\\56"}`},
+	}
+	for i, c := range cases {
+		dst, err := jsontools.ModifyJson([]byte(c.input), jsontools.WithFieldLengthLimit(c.maxLen))
+		require.NoError(t, err)
+		require.JSONEq(t, c.expected, string(dst), i)
 	}
 }
 

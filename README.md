@@ -152,6 +152,12 @@ equal, err := jsontools.JsonEqual([]byte(src1), []byte(src2))
 
 Sometimes we want to check if `json.Marshal` result is expected by using `assert.JSONEq` from [github.com/stretchr/testify/assert](https://pkg.go.dev/github.com/stretchr/testify/assert#JSONEq). But if some fields are `omitempty`, the marshal result won't contain these fields, however the expected json string may contain null values of these fields, which cause `assert.JSONEq` failed. Use `JsonEqual` to check if two json bytes are equal except null values, which is useful in this case.
 
+You can also replace `assert.JSONEq` with `jsontools.AssertJSONEq`, and `require.JSONEq` with `jsontools.RequireJSONEq` in test cases.
+
+```go
+jsontools.AssertJSONEq(t, expected, actual)
+jsontools.RequireJSONEq(t, expected, actual)
+```
 
 ## License
 

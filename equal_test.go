@@ -33,9 +33,10 @@ func TestEqual(t *testing.T) {
 		{`{"a":null,"b":null,"c":[1,2,{ "a":1.23,"b":null ,"c"  :"null"}]}`, `{"c":[1,2,{"a":1.23,"c":"null"}]}`, true},
 	}
 
-	for _, c := range cases {
+	for i, c := range cases {
 		got, err := jsontools.JsonEqual([]byte(c.a), []byte(c.b))
 		require.NoError(t, err)
 		require.Equal(t, c.want, got)
+		jsontools.RequireJSONEq(t, c.a, c.b, "case %d", i)
 	}
 }

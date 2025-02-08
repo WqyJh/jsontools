@@ -57,7 +57,6 @@ func (m *JsonModifier) ModifyJson(data []byte) ([]byte, error) {
 
 	skipComma := false
 	expectStackSize := 0
-	filterKeyStack := make([][]byte, 0, 32)
 	parser := NewJsonParser(data, func(ctx HandlerContext) error {
 
 		// filter keys ------- begin -------
@@ -75,7 +74,6 @@ func (m *JsonModifier) ModifyJson(data []byte) ([]byte, error) {
 		case KindObjectKey:
 			// object key must be string, therefore, this if could be removed
 			if _, ok := m.filterKeySet[string(ctx.Value)]; ok {
-				filterKeyStack = append(filterKeyStack, ctx.Value)
 				// skip this key
 				// m.skipColon = true
 				expectStackSize = ctx.StackSize

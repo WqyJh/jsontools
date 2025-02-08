@@ -7,6 +7,8 @@ Features:
 - Tokenize json bytes.
 - Parse and validate json bytes.
 - Modify json string with field length limit.
+- Filter null values from json bytes.
+- Check if two json bytes are equal except null values.
 
 ## Get
 
@@ -122,6 +124,33 @@ modifier := jsontools.NewJsonModifier(jsontools.WithFilterKeys("b", "d"), jsonto
 // result is `{"a":"12345","c":"12345"}`
 dst, err = modifier.ModifyJson([]byte(src))
 ```
+
+### Filter Null
+
+Filter null values from json bytes.
+
+```go
+src := `{"a":"1234567890","b":null,"c":"null"}`
+
+filter := jsontools.NewJsonNullFilter(false)
+
+// result is `{"a":"12345","c":"null"}`
+dst, err = filter.Filter([]byte(src))
+```
+
+### Json Equal
+
+Check if two json bytes are equal except null values.
+
+```go
+src1 := `{"a":"1234567890","b":null,"c":"null"}`
+src2 := `{"a":"12345","c":"null"}`
+
+// equal is true
+equal, err := jsontools.JsonEqual([]byte(src1), []byte(src2))
+```
+
+Sometimes we want to check if `json.Marshal` result is expected by using `assert.JSONEq` from [github.com/stretchr/testify/assert](https://pkg.go.dev/github.com/stretchr/testify/assert#JSONEq). But if some fields are `omitempty`, the marshal result won't contain these fields, however the expected json string may contain null values of these fields, which cause `assert.JSONEq` failed. Use `JsonEqual` to check if two json bytes are equal except null values, which is useful in this case.
 
 
 ## License
